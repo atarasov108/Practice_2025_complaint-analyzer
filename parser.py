@@ -5,6 +5,7 @@ import tqdm
 import pymorphy3
 import re
 import torch
+import ast
 
 from bs4 import BeautifulSoup
 from trl import SFTTrainer
