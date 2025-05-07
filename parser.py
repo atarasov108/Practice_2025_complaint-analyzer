@@ -16,6 +16,18 @@ from peft import AutoPeftModelForCausalLM, LoraConfig, get_peft_model, prepare_m
 from huggingface_hub import login
 from dotenv import load_dotenv
 
+try:
+    finetuned_model = AutoPeftModelForCausalLM.from_pretrained(
+        "mistral_instruct_qa_v5",
+        load_in_4bit=True,
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained("mistral_instruct_qa_v5")
+except:
+    print("Не удалось загрузить модель")
+
 load_dotenv()
 
 hf_api_key = os.getenv("HF_API_KEY")
@@ -209,28 +221,20 @@ def extract_response_dict(text: str) -> dict:
 
     if end_index is None:
         return {"Жалобы": {}}
-        raise ValueError("Не удалось найти полный словарь после ### Response.")
 
     dict_str = response_text[:end_index]
 
     try:
         result = ast.literal_eval(dict_str)
         if not isinstance(result, dict):
-            raise ValueError("Результат не является словарем.")
+            print("Результат не является словарем.")
+            return {"Жалобы": {}}
         return result
     except Exception as e:
-        raise ValueError(f"Ошибка при разборе словаря: {e}")
+        print(f"Ошибка при разборе словаря: {e}")
+        return {"Жалобы": {}}
 
 def get_simple_json_llm(complaint):
-
-    finetuned_model = AutoPeftModelForCausalLM.from_pretrained(
-        "mistral_instruct_qa_v5",
-        load_in_4bit=True,
-        torch_dtype=torch.bfloat16,
-        device_map="auto"
-    )
-
-    tokenizer = AutoTokenizer.from_pretrained("mistral_instruct_qa_v5")
 
     text_1 = """### Instruction:
         Извлеки жалобы из текста и приведи в структурированный вид.
@@ -295,7 +299,8 @@ if __name__ == "__main__":
 
             result = get_simple_json_llm(complaint)
 
-            if result:
+            if result["Output"] != {"Жалобы": {}}:
+                print("Json успешно сгенерирован")
                 dataset.append(result)
             else:
                 result = get_simple_json(complaint, complaints_groups)
