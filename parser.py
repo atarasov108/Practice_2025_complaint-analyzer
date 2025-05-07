@@ -6,6 +6,7 @@ import pymorphy3
 import re
 import torch
 import ast
+import random
 
 from bs4 import BeautifulSoup
 from trl import SFTTrainer
@@ -256,24 +257,149 @@ def get_simple_json_llm(complaint):
     """
 
     prompt = text_1 + text_2
+    try:
+        encoded_input = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
+        model_inputs = encoded_input.to('cuda')
 
-    encoded_input = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
-    model_inputs = encoded_input.to('cuda')
+        generated_ids = finetuned_model.generate(**model_inputs, max_new_tokens=256, do_sample=True, pad_token_id=tokenizer.eos_token_id)
 
-    generated_ids = finetuned_model.generate(**model_inputs, max_new_tokens=256, do_sample=True, pad_token_id=tokenizer.eos_token_id)
+        decoded_output = tokenizer.batch_decode(generated_ids)
 
-    decoded_output = tokenizer.batch_decode(generated_ids)
+        res_output = extract_response_dict(decoded_output[0])
 
-    res_output = extract_response_dict(decoded_output[0])
+        print("\n Результат работы LLM:")
+        print(f"Запрос: {complaint['complaints']}")
+        print(f"Ответ: {res_output}")
+        print("="*100)
 
-    print("\n Результат работы LLM:")
-    print(f"Запрос: {complaint['complaints']}")
-    print(f"Ответ: {res_output}")
-    print("="*100)
+        result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
 
-    result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
+        return result
+    except:
+        return None
 
-    return result
+def find_key_with_path(data, target_key):
+    results = []
+
+    def _search(obj, path):
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                current_path = path + [key]
+                if key == target_key:
+                    results.append((current_path))
+                _search(value, current_path)
+        elif isinstance(obj, list):
+            for index, item in enumerate(obj):
+                _search(item, path + [index])
+
+    _search(data, [])
+    res_path = None
+    for path in results:
+        res_path = "/".join(map(str, path))
+    if res_path:
+        return res_path+";"
+    else:
+        return None
+
+def fill_complex_complaint(universal_json, name, original_complaint, value):
+
+    universal_json["successors"].append(
+        {
+            "id" : random.randint(10**14, 10**15 - 1),
+            "name" : name,
+            "type" : "НЕТЕРМИНАЛ",
+            "meta" : "Признак",
+            "original" : original_complaint,
+            "successors" :
+            []
+        }
+    )
+
+def fill_simple_complaint(universal_json, name, original_complaint, value):
+    original_value = find_key_with_path(origin_search, name)
+    original_value = original_value.replace("База медицинской терминологии и наблюдений 2020 - Практика 2025", "База медицинской терминологии и наблюдений 2020 - Практика 2025$")
+    original_value = original_value.replace(";", "/Простой признак/Качественные значения/имеется;")
+    original_value = original_value.replace("/Группа наблюдений/", "/")
+    original_value = original_value.replace("/Группа признаков/", "/")
+    original_value = original_value.replace("/Признак/", "/")
+    universal_json["successors"].append(
+        {
+            "id" : random.randint(10**14, 10**15 - 1),
+            "name" : name,
+            "type" : "НЕТЕРМИНАЛ",
+            "meta" : "Признак",
+            "original" : original_complaint,
+            "successors" :
+            [
+                {
+                    "id" : random.randint(10**14, 10**15 - 1),
+                    "name" : "Качественные значения",
+                    "type" : "НЕТЕРМИНАЛ",
+                    "meta" : "Качественные значения",
+                    "successors" :
+                    [
+                        {
+                            "id" : random.randint(10**14, 10**15 - 1),
+                            "value" : "имеется",
+                            "type" : "ТЕРМИНАЛ-ЗНАЧЕНИЕ",
+                            "valtype" : "STRING",
+                            "meta" : "значение",
+                            "original" : original_value
+                        }
+                    ]
+                }
+             ]
+        }
+    )
+
+def get_universal_json(simple_json):
+
+    random.randint(10**14, 10**15 - 1)
+
+    universal_json = {
+        "id" : random.randint(10**14, 10**15 - 1),
+        "name" : "Жалобы",
+        "type" : "НЕТЕРМИНАЛ",
+        "meta" : "Жалобы",
+        "successors" :
+        []
+    }
+
+    if "Признак" not in simple_json['Жалобы']:
+        return universal_json
+
+    for complaint in simple_json['Жалобы']['Признак']:
+
+        for name, value in complaint.items():
+
+            original_complaint = find_key_with_path(origin_search, name)
+            if original_complaint:
+                original_complaint = original_complaint\
+                    .replace("База медицинской терминологии и наблюдений 2020 - Практика 2025", "База медицинской терминологии и наблюдений 2020 - Практика 2025$")
+                original_complaint = original_complaint.replace("/Группа наблюдений/", "/")
+                original_complaint = original_complaint.replace("/Группа признаков/", "/")
+                original_complaint = original_complaint.replace("/Признак/", "/")
+
+                if 'Характеристика' in value:
+                    fill_complex_complaint(universal_json, name, original_complaint, value)
+                elif 'Качественные значения' in value:
+                    fill_simple_complaint(universal_json, name, original_complaint, value)
+                else:
+                    universal_json["successors"].append(
+                        {
+                            "id" : random.randint(10**14, 10**15 - 1),
+                            "name" : name,
+                            "type" : "НЕТЕРМИНАЛ",
+                            "meta" : "Признак",
+                            "original" : original_complaint,
+                            "successors" :
+                            []
+                        }
+                    )
+            else:
+                continue
+
+    return universal_json
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -290,7 +416,7 @@ if __name__ == "__main__":
             complaints = json.load(f)
 
         with open("База медицинской терминологии и наблюдений 2020 - Практика 2025.simple.json", "r", encoding="utf-8") as f:
-            base_term = json.load(f)   
+            base_term = json.load(f)  
 
         dataset = []
         complaints_groups = base_term['Жалобы']['Группа признаков'] 
@@ -299,7 +425,7 @@ if __name__ == "__main__":
 
             result = get_simple_json_llm(complaint)
 
-            if result["Output"] != {"Жалобы": {}}:
+            if result:
                 print("Json успешно сгенерирован")
                 dataset.append(result)
             else:
@@ -315,5 +441,50 @@ if __name__ == "__main__":
         with open("simple.json", "w", encoding="utf-8") as f:
             json.dump(dataset, f, ensure_ascii=False, indent=2)
 
+        universal_dataset = []
+        universal_dataset_platform = []
+
+        with open("origin_search.simple.json", "r", encoding="utf-8") as f:
+            origin_search = json.load(f)   
+        
+        for simple_dict in dataset:
+            simple_dict['Output'] = get_universal_json(simple_dict['Output'])
+            universal_dataset.append(simple_dict)
+            universal_dataset_platform.append(simple_dict['Output'])
+
+        universal_dict = {
+            "title" : "Архив ИБ - Практика 2025 - Тест1",
+            "code" : "4640953873793518062",
+            "path" : "lemesh.ve@dvfu.ru / Мой Фонд / Архив ИБ - Практика 2025 - Тест1$;",
+            "date" : "04.05.2025-19:55:56.734",
+            "creation" : "04.03.2025-19:26:46.534",
+            "owner_id" : 41,
+            "json_type" : "universal",
+            "ontology" : "Онтология электронной медицинской карты V.4 - Практика 2025$;",
+            "id" : 603039178162180,
+            "name" : "Архив ИБ - Практика 2025 - Тест1",
+            "type" : "КОРЕНЬ",
+            "meta" : "Онтология электронной медицинской карты V.4 - Практика 2025",
+            "successors" :
+            [{
+                "id" : 603039178162184,
+                "name" : "Врачебные осмотры, консультации, истории болезни",
+                "type" : "НЕТЕРМИНАЛ",
+                "meta" : "Врачебные осмотры, консультации, истории болезни",
+                "successors" :
+                [{
+                    "id" : 603039178162188,
+                    "name" : "История болезни 2024-11-14 03:02:58:018331",
+                    "type" : "НЕТЕРМИНАЛ",
+                    "meta" : "История болезни или наблюдений v.4",
+                    "successors" :
+                    universal_dataset_platform}
+                ]}
+            ]
+        }
+        with open("universal.json", "w", encoding="utf-8") as f:
+            json.dump(universal_dict, f, ensure_ascii=False, indent=2)
+
         print(f"Извлеченный текст жалоб сохранен в {json_file}")
         print(f"Упрощенный json сохранен в simple.json")
+        print(f"Универсальный json сохранен в universal.json")
