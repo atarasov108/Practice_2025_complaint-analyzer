@@ -27,6 +27,15 @@ try:
 
     tokenizer = AutoTokenizer.from_pretrained("mistral_instruct_qa_v5")
 except:
+    finetuned_model = AutoPeftModelForCausalLM.from_pretrained(
+        "/content/complaint-analyzer/mistral_instruct_qa_v5",
+        load_in_4bit=True,
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained("/content/complaint-analyzer/mistral_instruct_qa_v5")
+else:
     print("Не удалось загрузить модель")
 
 load_dotenv()
@@ -302,7 +311,6 @@ def find_key_with_path(data, target_key):
         return None
 
 def fill_complex_complaint(universal_json, name, original_complaint, value):
-
     universal_json["successors"].append(
         {
             "id" : random.randint(10**14, 10**15 - 1),
@@ -314,6 +322,44 @@ def fill_complex_complaint(universal_json, name, original_complaint, value):
             []
         }
     )
+    for charact in value['Характеристика']:
+        original_value = original_complaint.replace(";", f"/Составной признак/{charact};")
+        universal_json["successors"][-1]["successors"].append(
+            {
+                "id" : random.randint(10**14, 10**15 - 1),
+                "name" : charact,
+                "type" : "НЕТЕРМИНАЛ",
+                "meta" : "Характеристика",
+                "original" : original_value,
+                "successors" :
+                [            
+                    {
+                        "id" : random.randint(10**14, 10**15 - 1),
+                        "name" : "Качественные значения",
+                        "type" : "НЕТЕРМИНАЛ",
+                        "meta" : "Качественные значения",
+                        "successors" :
+                        []
+                    }
+                ]
+            }
+        )
+
+        for qual_value in value['Характеристика'][charact]["Качественные значения"]["Значение"]:
+            original_qual_value = original_value.replace(";", f"/Тип возможных значений/Качественные значения/{qual_value};")
+            universal_json["successors"][-1]["successors"][-1]["successors"][-1]["successors"].append(
+                {
+                    "id" : random.randint(10**14, 10**15 - 1),
+                    "value" : qual_value,
+                    "type" : "ТЕРМИНАЛ-ЗНАЧЕНИЕ",
+                    "valtype" : "STRING",
+                    "meta" : "значение",
+                    "original" : original_qual_value
+                } 
+            )
+
+
+
 
 def fill_simple_complaint(universal_json, name, original_complaint, value):
     original_value = find_key_with_path(origin_search, name)
@@ -415,8 +461,12 @@ if __name__ == "__main__":
         with open(json_file, "r", encoding="utf-8") as f:
             complaints = json.load(f)
 
-        with open("База медицинской терминологии и наблюдений 2020 - Практика 2025.simple.json", "r", encoding="utf-8") as f:
-            base_term = json.load(f)  
+        try:
+            with open("База медицинской терминологии и наблюдений 2020 - Практика 2025.simple.json", "r", encoding="utf-8") as f:
+                base_term = json.load(f)
+        except:
+            with open("/content/complaint-analyzer/База медицинской терминологии и наблюдений 2020 - Практика 2025.simple.json", "r", encoding="utf-8") as f:
+                base_term = json.load(f)
 
         dataset = []
         complaints_groups = base_term['Жалобы']['Группа признаков'] 
@@ -443,14 +493,24 @@ if __name__ == "__main__":
 
         universal_dataset = []
         universal_dataset_platform = []
-
-        with open("origin_search.simple.json", "r", encoding="utf-8") as f:
-            origin_search = json.load(f)   
+        try:
+            with open("origin_search.simple.json", "r", encoding="utf-8") as f:
+                origin_search = json.load(f)   
+        except:
+            with open("/content/complaint-analyzer/origin_search.simple.json", "r", encoding="utf-8") as f:
+                origin_search = json.load(f)  
         
         for simple_dict in dataset:
             simple_dict['Output'] = get_universal_json(simple_dict['Output'])
             universal_dataset.append(simple_dict)
-            universal_dataset_platform.append(simple_dict['Output'])
+            universal_dataset_platform.append({
+                        "id" : random.randint(10**14, 10**15 - 1),
+                        "name" : f"История болезни 2024-11-14 03:02:58:{random.randint(10**5, 10**6 - 1)}",
+                        "type" : "НЕТЕРМИНАЛ",
+                        "meta" : "История болезни или наблюдений v.4",
+                        "successors" :
+                        [simple_dict['Output']]}
+                    )
 
         universal_dict = {
             "title" : "Архив ИБ - Практика 2025 - Тест1",
@@ -472,14 +532,7 @@ if __name__ == "__main__":
                 "type" : "НЕТЕРМИНАЛ",
                 "meta" : "Врачебные осмотры, консультации, истории болезни",
                 "successors" :
-                [{
-                    "id" : 603039178162188,
-                    "name" : "История болезни 2024-11-14 03:02:58:018331",
-                    "type" : "НЕТЕРМИНАЛ",
-                    "meta" : "История болезни или наблюдений v.4",
-                    "successors" :
-                    universal_dataset_platform}
-                ]}
+                universal_dataset_platform}
             ]
         }
         with open("universal.json", "w", encoding="utf-8") as f:
