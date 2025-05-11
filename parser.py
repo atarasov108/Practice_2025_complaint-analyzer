@@ -17,6 +17,12 @@ from peft import AutoPeftModelForCausalLM, LoraConfig, get_peft_model, prepare_m
 from huggingface_hub import login
 from dotenv import load_dotenv
 
+load_dotenv()
+
+hf_api_key = os.getenv("HF_API_KEY")
+
+login(hf_api_key)
+
 try:
     finetuned_model = AutoPeftModelForCausalLM.from_pretrained(
         "mistral_instruct_qa_v5",
@@ -37,12 +43,6 @@ except:
     tokenizer = AutoTokenizer.from_pretrained("/content/complaint-analyzer/mistral_instruct_qa_v5")
 else:
     print("Не удалось загрузить модель")
-
-load_dotenv()
-
-hf_api_key = os.getenv("HF_API_KEY")
-
-login(hf_api_key)
 
 morph = pymorphy3.MorphAnalyzer()
 
@@ -266,6 +266,8 @@ def get_simple_json_llm(complaint):
     """
 
     prompt = text_1 + text_2
+    if complaint['complaints'] in ["Жалобы не найдены", "на момент осмотра нет.", "на момент осмотра нет", "нет", "Нет", "нет.", "Нет.", "на момент осмотра активно не предъявляет", "активно нет", "активно не предъявляет", "Активно жалоб не предъявляет из-за тяжести состояния"]:
+        return None 
     try:
         encoded_input = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
         model_inputs = encoded_input.to('cuda')
