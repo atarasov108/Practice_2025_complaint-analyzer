@@ -67,6 +67,38 @@ else:
 
 morph = pymorphy3.MorphAnalyzer()
 
+def deep_equal(a, b, unordered_lists=False):
+    if isinstance(a, dict) and isinstance(b, dict):
+        if set(a.keys()) != set(b.keys()):
+            return False
+        return all(deep_equal(a[k], b[k], unordered_lists) for k in a)
+
+    elif isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return False
+        if unordered_lists:
+            matched = [False] * len(b)
+            for item_a in a:
+                found = False
+                for i, item_b in enumerate(b):
+                    if not matched[i] and deep_equal(item_a, item_b, unordered_lists):
+                        matched[i] = True
+                        found = True
+                        break
+                if not found:
+                    return False
+            return True
+        else:
+            return all(deep_equal(x, y, unordered_lists) for x, y in zip(a, b))
+
+    elif isinstance(a, (set, tuple)) and isinstance(b, (set, tuple)):
+        if type(a) != type(b) or len(a) != len(b):
+            return False
+        return all(deep_equal(x, y, unordered_lists) for x, y in zip(sorted(a), sorted(b)))
+
+    else:
+        return a == b
+
 def lemmatize_text(text):
     text_without_punctuation = re.sub(r'[^\w\s]', '', text)
 
@@ -309,7 +341,6 @@ def get_simple_json_llm(complaint):
         print("\n Результат работы LLM Mistral:")
         print(f"Запрос: {complaint['complaints']}")
         print(f"Ответ: {res_output}")
-        print("\n")
 
         encoded_input = tokenizer_openchatv1(prompt, return_tensors="pt", add_special_tokens=True)
         model_inputs = encoded_input.to('cuda')
@@ -325,7 +356,7 @@ def get_simple_json_llm(complaint):
         print(f"Ответ: {res_output_openchatv1}")
         print("="*100)
 
-        
+        print(deep_equal(res_output, res_output_openchatv1, unordered_lists=True))
         
         result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
 
