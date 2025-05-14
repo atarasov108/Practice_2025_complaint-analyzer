@@ -1,0 +1,64 @@
+{
+  "add_bos_token": true,
+  "add_eos_token": false,
+  "add_prefix_space": null,
+  "added_tokens_decoder": {
+    "0": {
+      "content": "<unk>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "1": {
+      "content": "<s>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "2": {
+      "content": "</s>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "32000": {
+      "content": "<|end_of_turn|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "32001": {
+      "content": "<|pad_0|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    }
+  },
+  "additional_special_tokens": [
+    "<|end_of_turn|>",
+    "<|pad_0|>"
+  ],
+  "bos_token": "<s>",
+  "chat_template": "{{ bos_token }}{% for message in messages %}{{ 'GPT4 Correct ' + message['role'].title() + ': ' + message['content'] + '<|end_of_turn|>'}}{% endfor %}{% if add_generation_prompt %}{{ 'GPT4 Correct Assistant:' }}{% endif %}",
+  "clean_up_tokenization_spaces": false,
+  "eos_token": "<|end_of_turn|>",
+  "extra_special_tokens": {},
+  "legacy": true,
+  "model_max_length": 1000000000000000019884624838656,
+  "pad_token": "<|end_of_turn|>",
+  "sp_model_kwargs": {},
+  "spaces_between_special_tokens": false,
+  "tokenizer_class": "LlamaTokenizer",
+  "unk_token": "<unk>",
+  "use_default_system_prompt": true
+}

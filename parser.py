@@ -24,25 +24,46 @@ hf_api_key = os.getenv("HF_API_KEY")
 login(hf_api_key)
 
 try:
-    finetuned_model = AutoPeftModelForCausalLM.from_pretrained(
-        "mistral_instruct_qa_v5",
+    finetuned_model_mistalv6 = AutoPeftModelForCausalLM.from_pretrained(
+        "mistral_instruct_qa_v6",
         load_in_4bit=True,
         torch_dtype=torch.bfloat16,
         device_map="auto"
     )
 
-    tokenizer = AutoTokenizer.from_pretrained("mistral_instruct_qa_v5")
+    tokenizer_mistalv6 = AutoTokenizer.from_pretrained("mistral_instruct_qa_v6")
 except:
-    finetuned_model = AutoPeftModelForCausalLM.from_pretrained(
-        "/content/complaint-analyzer/mistral_instruct_qa_v5",
+    finetuned_model_mistalv6 = AutoPeftModelForCausalLM.from_pretrained(
+        "/content/complaint-analyzer/mistral_instruct_qa_v6",
         load_in_4bit=True,
         torch_dtype=torch.bfloat16,
         device_map="auto"
     )
 
-    tokenizer = AutoTokenizer.from_pretrained("/content/complaint-analyzer/mistral_instruct_qa_v5")
+    tokenizer_mistalv6 = AutoTokenizer.from_pretrained("/content/complaint-analyzer/mistral_instruct_qa_v6")
 else:
-    print("Не удалось загрузить модель")
+    print("Не удалось загрузить модель mistral")
+
+try:
+    finetuned_model_openchatv1 = AutoPeftModelForCausalLM.from_pretrained(
+        "openchat_v1",
+        load_in_4bit=True,
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+
+    tokenizer_openchatv1 = AutoTokenizer.from_pretrained("openchat_v1")
+except:
+    finetuned_model_openchatv1 = AutoPeftModelForCausalLM.from_pretrained(
+        "/content/complaint-analyzer/openchat_v1",
+        load_in_4bit=True,
+        torch_dtype=torch.bfloat16,
+        device_map="auto"
+    )
+
+    tokenizer_openchatv1 = AutoTokenizer.from_pretrained("/content/complaint-analyzer/openchat_v1")
+else:
+    print("Не удалось загрузить модель openchat")
 
 morph = pymorphy3.MorphAnalyzer()
 
@@ -265,16 +286,23 @@ def get_simple_json_llm(complaint):
         ### Response:
     """
 
+    no_complaints_list = [
+        "Жалобы не найдены", "на момент осмотра нет.", "на момент осмотра нет", 
+        "нет", "Нет", "нет.", 
+        "Нет.", "на момент осмотра активно не предъявляет", "активно нет", 
+        "активно не предъявляет", "Активно жалоб не предъявляет из-за тяжести состояния", "",
+        "Активных жалоб на момент осомтра не предъявляет.", "активно не предъявляет.", ".", " "
+    ]
     prompt = text_1 + text_2
-    if complaint['complaints'] in ["Жалобы не найдены", "на момент осмотра нет.", "на момент осмотра нет", "нет", "Нет", "нет.", "Нет.", "на момент осмотра активно не предъявляет", "активно нет", "активно не предъявляет", "Активно жалоб не предъявляет из-за тяжести состояния"]:
-        return None 
+    if complaint['complaints'] in no_complaints_list:
+        return {'Жалобы': {'Признак': []}} 
     try:
-        encoded_input = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
+        encoded_input = tokenizer_mistalv6(prompt, return_tensors="pt", add_special_tokens=True)
         model_inputs = encoded_input.to('cuda')
 
-        generated_ids = finetuned_model.generate(**model_inputs, max_new_tokens=256, do_sample=True, pad_token_id=tokenizer.eos_token_id)
+        generated_ids = finetuned_model_mistalv6.generate(**model_inputs, max_new_tokens=256, do_sample=True, pad_token_id=tokenizer_mistalv6.eos_token_id)
 
-        decoded_output = tokenizer.batch_decode(generated_ids)
+        decoded_output = tokenizer_mistalv6.batch_decode(generated_ids)
 
         res_output = extract_response_dict(decoded_output[0])
 
