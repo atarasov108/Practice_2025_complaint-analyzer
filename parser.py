@@ -295,7 +295,7 @@ def get_simple_json_llm(complaint):
     ]
     prompt = text_1 + text_2
     if complaint['complaints'] in no_complaints_list:
-        return {'Жалобы': {'Признак': []}} 
+        return {"Output": {'Жалобы': {'Признак': []}}, "Input": complaint['complaints'], "file_name": complaint['file']}
     try:
         encoded_input = tokenizer_mistalv6(prompt, return_tensors="pt", add_special_tokens=True)
         model_inputs = encoded_input.to('cuda')
@@ -306,11 +306,27 @@ def get_simple_json_llm(complaint):
 
         res_output = extract_response_dict(decoded_output[0])
 
-        print("\n Результат работы LLM:")
+        print("\n Результат работы LLM Mistral:")
         print(f"Запрос: {complaint['complaints']}")
         print(f"Ответ: {res_output}")
+        print("\n")
+
+        encoded_input = tokenizer_openchatv1(prompt, return_tensors="pt", add_special_tokens=True)
+        model_inputs = encoded_input.to('cuda')
+
+        generated_ids = finetuned_model_openchatv1.generate(**model_inputs, max_new_tokens=256, do_sample=True, pad_token_id=tokenizer_openchatv1.eos_token_id)
+
+        decoded_output = tokenizer_openchatv1.batch_decode(generated_ids)
+
+        res_output_openchatv1 = extract_response_dict(decoded_output[0])
+
+        print("\n Результат работы LLM OpenChat:")
+        print(f"Запрос: {complaint['complaints']}")
+        print(f"Ответ: {res_output_openchatv1}")
         print("="*100)
 
+        
+        
         result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
 
         return result
