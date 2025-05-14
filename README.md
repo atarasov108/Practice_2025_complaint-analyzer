@@ -8,7 +8,10 @@
 
 4. Установите необходимые библиотеки pip install -r requirements.txt
 
-5. В файле .env пропишите свой api ключ от hugging face HF_API_KEY=Ваш ключ
+5. В файле .env пропишите:
+    свой api ключ от hugging face HF_API_KEY=Ваш ключ
+    название информации TITLE=Ваше название
+    логин от платформы iacpaas MAIL=ваш логин
 
 6. Чтобы запустить приложение, необходимо в командной строке выполнить python parser.py Path, 
 
