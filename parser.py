@@ -354,13 +354,16 @@ def get_simple_json_llm(complaint):
         print("\n Результат работы LLM OpenChat:")
         print(f"Запрос: {complaint['complaints']}")
         print(f"Ответ: {res_output_openchatv1}")
-        print("="*100)
 
-        print(deep_equal(res_output, res_output_openchatv1, unordered_lists=True))
-        
-        result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
-
-        return result
+        if deep_equal(res_output, res_output_openchatv1, unordered_lists=True):
+            print("Результаты моделей равны")
+            print("="*100)
+            result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
+            return result
+        else:
+            print("Результаты моделей отличаются, будет использован ручной парсер")
+            print("="*100)
+            None
     except:
         return None
 
@@ -589,17 +592,19 @@ if __name__ == "__main__":
                         [simple_dict['Output']]}
                     )
 
+        title = os.getenv("TITLE")
+        mail = os.getenv("MAIL")
         universal_dict = {
-            "title" : "Архив ИБ - Практика 2025 - Тест1",
+            "title" : title,
             "code" : "4640953873793518062",
-            "path" : "lemesh.ve@dvfu.ru / Мой Фонд / Архив ИБ - Практика 2025 - Тест1$;",
+            "path" : f"{mail} / Мой Фонд / {title}$;",
             "date" : "04.05.2025-19:55:56.734",
             "creation" : "04.03.2025-19:26:46.534",
             "owner_id" : 41,
             "json_type" : "universal",
             "ontology" : "Онтология электронной медицинской карты V.4 - Практика 2025$;",
             "id" : 603039178162180,
-            "name" : "Архив ИБ - Практика 2025 - Тест1",
+            "name" : title,
             "type" : "КОРЕНЬ",
             "meta" : "Онтология электронной медицинской карты V.4 - Практика 2025",
             "successors" :
