@@ -67,6 +67,25 @@ else:
 
 morph = pymorphy3.MorphAnalyzer()
 
+replacement = {
+    "Качественные значения": {
+        "значение": [
+            "имеется"
+        ]
+    }
+}
+
+def replace_empty_dicts(obj):
+    if isinstance(obj, dict):
+        if not obj: 
+            return replacement
+        else:
+            return {k: replace_empty_dicts(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [replace_empty_dicts(item) for item in obj]
+    else:
+        return obj
+
 def deep_equal(a, b, unordered_lists=False):
     if isinstance(a, dict) and isinstance(b, dict):
         if set(a.keys()) != set(b.keys()):
@@ -567,6 +586,8 @@ if __name__ == "__main__":
         for i in range(0, len(dataset)):
             symptoms = dataset[i]['Output']['Жалобы']['Признак']
             dataset[i]['Output']['Жалобы']['Признак'] = remove_duplicate_keys_by_name(symptoms)
+
+        dataset = replace_empty_dicts(dataset)
 
         with open("simple.json", "w", encoding="utf-8") as f:
             json.dump(dataset, f, ensure_ascii=False, indent=2)
