@@ -317,6 +317,32 @@ def extract_response_dict(text: str) -> dict:
         print(f"Ошибка при разборе словаря: {e}")
         return {"Жалобы": {}}
 
+def compare_dicts(main, auxiliary, path=""):
+    differences = []
+
+    if isinstance(main, dict) and isinstance(auxiliary, dict):
+        all_keys = set(main.keys()).union(auxiliary.keys())
+        for key in all_keys:
+            new_path = f"{path}.{key}" if path else key
+            if key not in main:
+                differences.append(f"Отсутствует в основном: {new_path} = {auxiliary[key]}")
+            elif key not in auxiliary:
+                differences.append(f"Отсутствует в вспомогательном: {new_path} = {main[key]}")
+            else:
+                differences.extend(compare_dicts(main[key], auxiliary[key], new_path))
+
+    elif isinstance(main, list) and isinstance(auxiliary, list):
+        min_len = min(len(main), len(auxiliary))
+        for i in range(min_len):
+            new_path = f"{path}[{i}]"
+            differences.extend(compare_dicts(main[i], auxiliary[i], new_path))
+
+    else:
+        if main != auxiliary:
+            differences.append(f"Различие в {path}: основное = {main}, вспомогательное = {auxiliary}")
+
+    return differences
+
 def get_simple_json_llm(complaint):
 
     text_1 = """### Instruction:
@@ -362,7 +388,7 @@ def get_simple_json_llm(complaint):
 
         print("\n Результат работы LLM Mistral:")
         print(f"Запрос: {complaint['complaints']}")
-        print(f"Ответ: {replace_empty_dicts(res_output)}")
+        print(f"Ответ: {replace_empty_dicts(copy.deepcopy(res_output))}")
 
         encoded_input = tokenizer_openchatv1(prompt, return_tensors="pt", add_special_tokens=True)
         model_inputs = encoded_input.to('cuda')
@@ -377,9 +403,12 @@ def get_simple_json_llm(complaint):
 
         print("\n Результат работы LLM OpenChat:")
         print(f"Запрос: {complaint['complaints']}")
-        print(f"Ответ: {replace_empty_dicts(res_output_openchatv1)}")
+        print(f"Ответ: {replace_empty_dicts(res_output_openchatv1)}\n")
+        diffs = compare_dicts(replace_empty_dicts(copy.deepcopy(res_output)), replace_empty_dicts(res_output_openchatv1))
+        for d in diffs:
+            print(d)
 
-        if deep_equal(replace_empty_dicts(res_output), replace_empty_dicts(res_output_openchatv1), unordered_lists=True):
+        if deep_equal(replace_empty_dicts(copy.deepcopy(res_output)), replace_empty_dicts(res_output_openchatv1), unordered_lists=True):
             print("Результаты моделей равны")
             print("="*100)
             result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
