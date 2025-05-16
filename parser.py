@@ -6,6 +6,7 @@ import pymorphy3
 import re
 import torch
 import ast
+import copy
 import random
 
 from bs4 import BeautifulSoup
@@ -67,7 +68,7 @@ else:
 
 morph = pymorphy3.MorphAnalyzer()
 
-replacement = {
+replacement = replacement = {
     "Качественные значения": {
         "значение": [
             "имеется"
@@ -357,9 +358,11 @@ def get_simple_json_llm(complaint):
 
         res_output = extract_response_dict(decoded_output[0])
 
+        # res_output = replace_empty_dicts(res_output)
+
         print("\n Результат работы LLM Mistral:")
         print(f"Запрос: {complaint['complaints']}")
-        print(f"Ответ: {res_output}")
+        print(f"Ответ: {replace_empty_dicts(res_output)}")
 
         encoded_input = tokenizer_openchatv1(prompt, return_tensors="pt", add_special_tokens=True)
         model_inputs = encoded_input.to('cuda')
@@ -370,11 +373,13 @@ def get_simple_json_llm(complaint):
 
         res_output_openchatv1 = extract_response_dict(decoded_output[0])
 
+        # res_output_openchatv1 = replace_empty_dicts(res_output_openchatv1)
+
         print("\n Результат работы LLM OpenChat:")
         print(f"Запрос: {complaint['complaints']}")
-        print(f"Ответ: {res_output_openchatv1}")
+        print(f"Ответ: {replace_empty_dicts(res_output_openchatv1)}")
 
-        if deep_equal(res_output, res_output_openchatv1, unordered_lists=True):
+        if deep_equal(replace_empty_dicts(res_output), replace_empty_dicts(res_output_openchatv1), unordered_lists=True):
             print("Результаты моделей равны")
             print("="*100)
             result = {"Output": res_output, "Input": complaint['complaints'], "file_name": complaint['file']}
@@ -532,13 +537,29 @@ def get_universal_json(simple_json):
                 else:
                     universal_json["successors"].append(
                         {
-                            "id" : random.randint(10**14, 10**15 - 1),
-                            "name" : name,
-                            "type" : "НЕТЕРМИНАЛ",
-                            "meta" : "Признак",
-                            "original" : original_complaint,
-                            "successors" :
-                            []
+                            "id": random.randint(10**14, 10**15 - 1),
+                            "name": name,
+                            "type": "НЕТЕРМИНАЛ",
+                            "meta": "Признак",
+                            "original": original_complaint,
+                            "successors": [
+                                {
+                                "id": random.randint(10**14, 10**15 - 1),
+                                "name": "Качественные значения",
+                                "type": "НЕТЕРМИНАЛ",
+                                "meta": "Качественные значения",
+                                "successors": [
+                                    {
+                                    "id": random.randint(10**14, 10**15 - 1),
+                                    "value": "имеется",
+                                    "type": "ТЕРМИНАЛ-ЗНАЧЕНИЕ",
+                                    "valtype": "STRING",
+                                    "meta": "значение",
+                                    
+                                    }
+                                ]
+                                }
+                            ]
                         }
                     )
             else:
@@ -587,10 +608,12 @@ if __name__ == "__main__":
             symptoms = dataset[i]['Output']['Жалобы']['Признак']
             dataset[i]['Output']['Жалобы']['Признак'] = remove_duplicate_keys_by_name(symptoms)
 
-        dataset = replace_empty_dicts(dataset)
+        copy_simple_dataset = copy.deepcopy(dataset)
+
+        copy_simple_dataset = replace_empty_dicts(copy_simple_dataset)
 
         with open("simple.json", "w", encoding="utf-8") as f:
-            json.dump(dataset, f, ensure_ascii=False, indent=2)
+            json.dump(copy_simple_dataset, f, ensure_ascii=False, indent=2)
 
         universal_dataset = []
         universal_dataset_platform = []
